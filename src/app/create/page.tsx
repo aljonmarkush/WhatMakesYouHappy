@@ -79,7 +79,7 @@ export default function CreateStoryPage() {
         {
           title,
           content: description,
-          mood,
+          mood: mood.toLowerCase(),
           author_name: authorName.trim() || "Anonymous",
           target_person: targetName.trim() || null,
           image_url: imageUrl,
