@@ -11,16 +11,20 @@ interface StoryProps {
     title: string;
     content: string;
     image_url?: string;
-    mood: "HAPPY" | "SAD";
-    category: string;
-    is_anonymous: boolean;
+    mood: string;
+    category?: string;
+    is_anonymous?: boolean;
     profiles?: { full_name: string; avatar_url: string };
+    author_name?: string;
     created_at: string;
   };
 }
 
 export function StoryCard({ story }: StoryProps) {
   const [liked, setLiked] = useState(false);
+
+  // Normalize mood check for both uppercase/lowercase formats
+  const isHappy = story.mood?.toLowerCase() === "happy" || story.mood?.toLowerCase() === "smile";
 
   return (
     <motion.article
@@ -46,12 +50,12 @@ export function StoryCard({ story }: StoryProps) {
         <div className="flex items-center justify-between">
           <span
             className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              story.mood === "HAPPY"
+              isHappy
                 ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                 : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
             }`}
           >
-            {story.mood === "HAPPY" ? "😊 Happy" : "😔 Sad"} • {story.category}
+            {isHappy ? "😊 Smile" : "😔 Sad"}
           </span>
           <span className="text-xs text-gray-400">
             {new Date(story.created_at).toLocaleDateString()}
@@ -69,10 +73,10 @@ export function StoryCard({ story }: StoryProps) {
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-200">
-              {story.is_anonymous ? "A" : story.profiles?.full_name?.[0] || "U"}
+              {story.author_name ? story.author_name[0].toUpperCase() : "U"}
             </div>
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              {story.is_anonymous ? "Anonymous" : story.profiles?.full_name || "User"}
+              {story.author_name || story.profiles?.full_name || "User"}
             </span>
           </div>
 
