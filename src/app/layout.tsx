@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "What Makes You Happy? — Share Moments & Inspire Kindness",
   description: "A minimal, heartwarming platform to express happy moments and find comfort on difficult days.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
