@@ -13,10 +13,10 @@ export default function SupportPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Replace with your real account details
-  const gcashNumber = "09XX-XXX-XXXX";
+  const gcashNumber = "0951-151-5256";
   const gcashName = "J** N. P."; // Optional: Initials/Account Name
 
-  const mayaNumber = "09XX-XXX-XXXX";
+  const mayaNumber = "0951-151-5256";
   const mayaName = "J** N. P.";   // Optional: Initials/Account Name
 
   const copyToClipboard = (text: string, fieldName: string) => {
