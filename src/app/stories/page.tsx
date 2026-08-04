@@ -56,7 +56,7 @@ export default function StoriesPage() {
     return storyMood === filterMood;
   });
 
-  // Helper to load external images cleanly
+  // Helper to cleanly load images with CORS support
   const loadImage = (url: string): Promise<HTMLImageElement | null> => {
     return new Promise((resolve) => {
       if (!url) {
@@ -66,12 +66,15 @@ export default function StoriesPage() {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
+      img.onerror = () => {
+        console.warn("Failed to load image for canvas:", url);
+        resolve(null);
+      };
       img.src = url;
     });
   };
 
-  // Generate Canvas Preview without overlapping glitches
+  // Generate Canvas Preview with precise line positioning (No overlapping)
   const handleOpenPreview = async (story: Story) => {
     setPreviewStory(story);
     setGeneratingPreview(true);
@@ -93,14 +96,14 @@ export default function StoriesPage() {
 
       // 2. Central Card Background
       ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = 50;
-      ctx.shadowOffsetY = 25;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 20;
       
       const cardX = 90;
-      const cardY = 200;
+      const cardY = 160;
       const cardWidth = 900;
-      const cardHeight = 1520;
+      const cardHeight = 1600;
       const radius = 48;
 
       ctx.beginPath();
@@ -108,24 +111,26 @@ export default function StoriesPage() {
       ctx.fill();
       ctx.shadowBlur = 0; // Reset shadow
 
-      let currentY = cardY + 70;
+      let currentY = cardY + 75;
+      const textLeft = cardX + 70;
+      const maxTextWidth = 760;
 
       // 3. Brand Header
-      ctx.font = "bold 28px sans-serif";
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText("WHAT MAKES YOU HAPPY", cardX + 70, currentY);
-      currentY += 45;
+      ctx.font = "bold 26px sans-serif";
+      ctx.fillStyle = "#9ca3af";
+      ctx.fillText("WHAT MAKES YOU HAPPY", textLeft, currentY);
+      currentY += 50;
 
       // 4. Mood Badge Pill
       const isSmile = story.mood?.toLowerCase().trim() === "smile";
       ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)";
       ctx.beginPath();
-      ctx.roundRect(cardX + 70, currentY, 220, 50, 25);
+      ctx.roundRect(textLeft, currentY, 210, 48, 24);
       ctx.fill();
 
-      ctx.font = "bold 24px sans-serif";
+      ctx.font = "bold 22px sans-serif";
       ctx.fillStyle = isSmile ? "#059669" : "#d97706";
-      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", cardX + 95, currentY + 33);
+      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 22, currentY + 31);
       currentY += 75;
 
       // 5. Optional Image Rendering
@@ -133,60 +138,61 @@ export default function StoriesPage() {
         const loadedImg = await loadImage(story.image_url);
         if (loadedImg) {
           const imgWidth = 760;
-          const imgHeight = 340;
-          const imgX = cardX + 70;
+          const imgHeight = 380;
           
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(imgX, currentY, imgWidth, imgHeight, 20);
+          ctx.roundRect(textLeft, currentY, imgWidth, imgHeight, 20);
           ctx.clip();
-          ctx.drawImage(loadedImg, imgX, currentY, imgWidth, imgHeight);
+          ctx.drawImage(loadedImg, textLeft, currentY, imgWidth, imgHeight);
           ctx.restore();
           
-          currentY += imgHeight + 35;
+          currentY += imgHeight + 40;
         }
       }
 
       // 6. Title Text Wrap
-      ctx.font = "bold 44px sans-serif";
+      ctx.font = "bold 42px sans-serif";
       ctx.fillStyle = "#111827";
       const titleWords = story.title.split(" ");
       let titleLine = "";
+      
       for (let n = 0; n < titleWords.length; n++) {
         const testLine = titleLine + titleWords[n] + " ";
-        if (ctx.measureText(testLine).width > 760 && n > 0) {
-          ctx.fillText(titleLine, cardX + 70, currentY);
+        if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
+          ctx.fillText(titleLine, textLeft, currentY);
           titleLine = titleWords[n] + " ";
-          currentY += 56;
+          currentY += 52; // Push down for next line
         } else {
           titleLine = testLine;
         }
       }
-      ctx.fillText(titleLine, cardX + 70, currentY);
-      currentY += 45;
+      ctx.fillText(titleLine, textLeft, currentY);
+      currentY += 55; // Space after title
 
       // 7. Body Content Text Wrap
-      ctx.font = "30px sans-serif";
+      ctx.font = "28px sans-serif";
       ctx.fillStyle = "#4b5563";
-      const words = story.content.split(" ");
-      let line = "";
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + " ";
-        if (ctx.measureText(testLine).width > 760 && n > 0) {
-          ctx.fillText(line, cardX + 70, currentY);
-          line = words[n] + " ";
-          currentY += 42;
-          if (currentY > cardY + cardHeight - 100) break;
+      const contentWords = story.content.split(" ");
+      let contentLine = "";
+
+      for (let n = 0; n < contentWords.length; n++) {
+        const testLine = contentLine + contentWords[n] + " ";
+        if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
+          ctx.fillText(contentLine, textLeft, currentY);
+          contentLine = contentWords[n] + " ";
+          currentY += 40; // Push down for next line
+          if (currentY > cardY + cardHeight - 80) break; // Prevent overflow out of card
         } else {
-          line = testLine;
+          contentLine = testLine;
         }
       }
-      ctx.fillText(line, cardX + 70, currentY);
+      ctx.fillText(contentLine, textLeft, currentY);
 
-      // 8. Footer Author
-      ctx.font = "bold 26px sans-serif";
+      // 8. Footer Author (Fixed at bottom of card)
+      ctx.font = "bold 24px sans-serif";
       ctx.fillStyle = "#9ca3af";
-      ctx.fillText(`Shared by: ${story.author_name}`, cardX + 70, cardY + cardHeight - 50);
+      ctx.fillText(`Shared by: ${story.author_name}`, textLeft, cardY + cardHeight - 50);
 
       setPreviewDataUrl(canvas.toDataURL("image/png"));
     } catch (err) {
@@ -309,7 +315,7 @@ export default function StoriesPage() {
                     </button>
                   </div>
 
-                  {/* Image Display */}
+                  {/* Feed Image Display */}
                   {story.image_url && (
                     <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5 border border-gray-200/40 dark:border-gray-700/40">
                       <img
