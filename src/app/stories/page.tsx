@@ -56,7 +56,7 @@ export default function StoriesPage() {
     return storyMood === filterMood;
   });
 
-  // Helper to draw image onto canvas safely
+  // Helper to load external images cleanly
   const loadImage = (url: string): Promise<HTMLImageElement | null> => {
     return new Promise((resolve) => {
       if (!url) {
@@ -71,7 +71,7 @@ export default function StoriesPage() {
     });
   };
 
-  // Generate Canvas Preview
+  // Generate Canvas Preview without overlapping glitches
   const handleOpenPreview = async (story: Story) => {
     setPreviewStory(story);
     setGeneratingPreview(true);
@@ -98,9 +98,9 @@ export default function StoriesPage() {
       ctx.shadowOffsetY = 25;
       
       const cardX = 90;
-      const cardY = 240;
+      const cardY = 200;
       const cardWidth = 900;
-      const cardHeight = 1420;
+      const cardHeight = 1520;
       const radius = 48;
 
       ctx.beginPath();
@@ -111,10 +111,10 @@ export default function StoriesPage() {
       let currentY = cardY + 70;
 
       // 3. Brand Header
-      ctx.font = "bold 30px sans-serif";
+      ctx.font = "bold 28px sans-serif";
       ctx.fillStyle = "#6b7280";
       ctx.fillText("WHAT MAKES YOU HAPPY", cardX + 70, currentY);
-      currentY += 50;
+      currentY += 45;
 
       // 4. Mood Badge Pill
       const isSmile = story.mood?.toLowerCase().trim() === "smile";
@@ -126,29 +126,29 @@ export default function StoriesPage() {
       ctx.font = "bold 24px sans-serif";
       ctx.fillStyle = isSmile ? "#059669" : "#d97706";
       ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", cardX + 95, currentY + 33);
-      currentY += 80;
+      currentY += 75;
 
       // 5. Optional Image Rendering
       if (story.image_url) {
         const loadedImg = await loadImage(story.image_url);
         if (loadedImg) {
           const imgWidth = 760;
-          const imgHeight = 360;
+          const imgHeight = 340;
           const imgX = cardX + 70;
           
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(imgX, currentY, imgWidth, imgHeight, 24);
+          ctx.roundRect(imgX, currentY, imgWidth, imgHeight, 20);
           ctx.clip();
           ctx.drawImage(loadedImg, imgX, currentY, imgWidth, imgHeight);
           ctx.restore();
           
-          currentY += imgHeight + 40;
+          currentY += imgHeight + 35;
         }
       }
 
       // 6. Title Text Wrap
-      ctx.font = "bold 48px sans-serif";
+      ctx.font = "bold 44px sans-serif";
       ctx.fillStyle = "#111827";
       const titleWords = story.title.split(" ");
       let titleLine = "";
@@ -157,13 +157,13 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > 760 && n > 0) {
           ctx.fillText(titleLine, cardX + 70, currentY);
           titleLine = titleWords[n] + " ";
-          currentY += 60;
+          currentY += 56;
         } else {
           titleLine = testLine;
         }
       }
       ctx.fillText(titleLine, cardX + 70, currentY);
-      currentY += 50;
+      currentY += 45;
 
       // 7. Body Content Text Wrap
       ctx.font = "30px sans-serif";
@@ -175,7 +175,7 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > 760 && n > 0) {
           ctx.fillText(line, cardX + 70, currentY);
           line = words[n] + " ";
-          currentY += 46;
+          currentY += 42;
           if (currentY > cardY + cardHeight - 100) break;
         } else {
           line = testLine;
@@ -309,7 +309,7 @@ export default function StoriesPage() {
                     </button>
                   </div>
 
-                  {/* Fixed Image Rendering */}
+                  {/* Image Display */}
                   {story.image_url && (
                     <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5 border border-gray-200/40 dark:border-gray-700/40">
                       <img
