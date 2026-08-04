@@ -10,7 +10,7 @@ export default function CreateStoryPage() {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [mood, setMood] = useState<"smile" | "sad">("smile");
+  const [mood, setMood] = useState<"Smile" | "Sad">("Smile");
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [targetName, setTargetName] = useState("");
@@ -79,7 +79,7 @@ export default function CreateStoryPage() {
         {
           title,
           content: description,
-          mood: mood, // Sends lowercase "smile" or "sad"
+          mood,
           author_name: authorName.trim() || "Anonymous",
           target_person: targetName.trim() || null,
           image_url: imageUrl,
@@ -126,9 +126,9 @@ export default function CreateStoryPage() {
               <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-200/70 dark:bg-gray-900/50 rounded-2xl">
                 <button
                   type="button"
-                  onClick={() => setMood("smile")}
+                  onClick={() => setMood("Smile")}
                   className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    mood === "smile"
+                    mood === "Smile"
                       ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
                       : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
                   }`}
@@ -137,9 +137,9 @@ export default function CreateStoryPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMood("sad")}
+                  onClick={() => setMood("Sad")}
                   className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    mood === "sad"
+                    mood === "Sad"
                       ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
                       : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
                   }`}
