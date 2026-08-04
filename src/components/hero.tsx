@@ -20,7 +20,7 @@ const carouselAnimation = {
 
 const carouselTransition = {
   duration: 20,
-  ease: "linear",
+  ease: "linear" as const,
   repeat: Infinity,
   repeatType: "loop" as const,
 };
