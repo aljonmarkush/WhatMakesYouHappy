@@ -14,6 +14,23 @@ interface Metrics {
   sadMoments: number;
 }
 
+// Animation configuration for the carousel background slide
+const carouselAnimation = {
+  animate: {
+    // This animates the background-position to create a sliding effect.
+    // We start from 0% and move to -100% of the element's width,
+    // creating a seamless loop with the repeating linear-gradient below.
+    backgroundPosition: ["0% 0%", "-100% 0%"],
+  },
+  transition: {
+    // Adjust the duration to control the speed of the slide (lower = faster)
+    duration: 20, 
+    ease: "linear", // Linear provides the constant speed of a carousel
+    repeat: Infinity, // Infinitely loop the animation
+    repeatType: "loop",
+  },
+};
+
 export function Hero() {
   const supabase = createClient();
 
@@ -43,12 +60,12 @@ export function Hero() {
         
         const smileMoments = data.filter((s) => {
           const m = s.mood?.toLowerCase().trim() || "";
-          return m === "smile";
+          return m.includes("smile") || m.includes("happy");
         }).length;
 
         const sadMoments = data.filter((s) => {
           const m = s.mood?.toLowerCase().trim() || "";
-          return m === "sad";
+          return m.includes("sad");
         }).length;
 
         setMetrics({ totalStories, smileMoments, sadMoments });
@@ -182,6 +199,24 @@ export function Hero() {
           </div>
         </motion.div>
       </div>
+
+      {/* Carousel / Scrolling Background Effect for Stories */}
+      {/* We apply a background gradient that repeats and animate its position */}
+      <motion.div
+        {...carouselAnimation}
+        className="absolute inset-0 z-0 opacity-30 scale-105"
+        style={{
+          // A repeating gradient that acts as the visual track for the carousel.
+          // It repeats transparent -> white -> transparent over 200% of the width.
+          background: `repeating-linear-gradient(
+            to right, 
+            transparent 0%, 
+            rgba(255, 255, 255, 0.5) 50%, 
+            transparent 100%
+          )`,
+          backgroundSize: "200% 100%", // Crucial: The gradient is wider than the container
+        }}
+      />
     </section>
   );
 }

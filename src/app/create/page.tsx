@@ -1,291 +1,314 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Smile, Frown, Loader2, Download, Share2 } from "lucide-react";
+import { ImagePlus, CheckCircle2, Loader2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-interface Story {
-  id: string;
-  title: string;
-  content: string;
-  mood: string;
-  author_name: string;
-  target_person?: string | null;
-  image_url?: string | null;
-  created_at: string;
-}
-
-export default function StoriesPage() {
+export default function CreateStoryPage() {
+  const router = useRouter();
   const supabase = createClient();
-  const [stories, setStories] = useState<Story[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<"All" | "Smile" | "Sad">("All");
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    fetchStories();
-  }, []);
+  const [mood, setMood] = useState<"smile" | "sad">("smile");
+  const [title, setTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [targetName, setTargetName] = useState("");
+  const [description, setDescription] = useState("");
+  
+  // Image Upload States
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const fetchStories = async () => {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Handle File Selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  // Remove Selected Image
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (title.length < 3 || description.length < 3) return;
+
     setLoading(true);
+    setStatus("idle");
+    setErrorMessage("");
+
     try {
-      const { data, error } = await supabase
-        .from("stories")
-        .select("*")
-        .eq("is_approved", true)
-        .order("created_at", { ascending: false });
+      let imageUrl: string | null = null;
+
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `story-images/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("stories")
+          .upload(filePath, selectedFile);
+
+        if (uploadError) {
+          console.warn("Storage upload failed, proceeding without image:", uploadError.message);
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from("stories")
+            .getPublicUrl(filePath);
+          imageUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      const { error } = await supabase.from("stories").insert([
+        {
+          title,
+          content: description,
+          mood: mood, // Sends lowercase "smile" or "sad"
+          author_name: authorName.trim() || "Anonymous",
+          target_person: targetName.trim() || null,
+          image_url: imageUrl,
+          is_approved: true,
+        },
+      ]);
 
       if (error) throw error;
-      setStories(data || []);
-    } catch (err) {
-      console.error("Error fetching stories:", err);
+
+      setStatus("success");
+      setTimeout(() => {
+        router.push("/stories");
+      }, 1500);
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMessage(err.message || "Failed to submit. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredStories = stories.filter((story) => {
-    if (activeFilter === "All") return true;
-    const storyMood = story.mood?.toLowerCase().trim() || "";
-    const filterMood = activeFilter.toLowerCase().trim();
-    return storyMood === filterMood;
-  });
-
-  // Function to generate a downloadable story image for IG/FB stories
-  const handleDownloadStoryCard = async (story: Story) => {
-    setDownloadingId(story.id);
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1080; // Standard Instagram / Facebook Story width
-      canvas.height = 1920; // Standard Instagram / Facebook Story height
-      const ctx = canvas.getContext("2d");
-
-      if (!ctx) return;
-
-      // 1. Draw Background Gradient
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#f9fafb");
-      gradient.addColorStop(1, "#e5e7eb");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 2. Draw Central Card Background
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.1)";
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 20;
-      
-      const cardX = 90;
-      const cardY = 360;
-      const cardWidth = 900;
-      const cardHeight = 1200;
-      const radius = 40;
-
-      ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, radius);
-      ctx.fill();
-      ctx.shadowBlur = 0; // Reset shadow
-
-      // 3. Draw Brand Watermark / Header inside card
-      ctx.font = "bold 32px sans-serif";
-      ctx.fillStyle = "#111827";
-      ctx.fillText("What Makes You Happy", cardX + 60, cardY + 90);
-
-      // 4. Draw Mood Badge Pill
-      const isSmile = story.mood?.toLowerCase().trim() === "smile";
-      ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)";
-      ctx.beginPath();
-      ctx.roundRect(cardX + 60, cardY + 130, 180, 50, 25);
-      ctx.fill();
-
-      ctx.font = "bold 24px sans-serif";
-      ctx.fillStyle = isSmile ? "#059669" : "#d97706";
-      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", cardX + 85, cardY + 163);
-
-      // 5. Draw Story Title
-      ctx.font = "bold 52px sans-serif";
-      ctx.fillStyle = "#111827";
-      
-      // Word wrap title
-      const titleWords = story.title.split(" ");
-      let titleLine = "";
-      let titleY = cardY + 260;
-      for (let n = 0; n < titleWords.length; n++) {
-        const testLine = titleLine + titleWords[n] + " ";
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > 780 && n > 0) {
-          ctx.fillText(titleLine, cardX + 60, titleY);
-          titleLine = titleWords[n] + " ";
-          titleY += 65;
-        } else {
-          titleLine = testLine;
-        }
-      }
-      ctx.fillText(titleLine, cardX + 60, titleY);
-
-      // 6. Draw Story Content Body
-      ctx.font = "32px sans-serif";
-      ctx.fillStyle = "#4b5563";
-      let contentY = titleY + 80;
-      const words = story.content.split(" ");
-      let line = "";
-      
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + " ";
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > 780 && n > 0) {
-          ctx.fillText(line, cardX + 60, contentY);
-          line = words[n] + " ";
-          contentY += 50;
-        } else {
-          line = testLine;
-        }
-      }
-      ctx.fillText(line, cardX + 60, contentY);
-
-      // 7. Draw Footer Author details
-      ctx.font = "bold 28px sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText(`Shared by: ${story.author_name}`, cardX + 60, cardY + cardHeight - 80);
-
-      // 8. Convert Canvas to Downloadable Image Link
-      const imageURI = canvas.toDataURL("image/png");
-      const downloadLink = document.createElement("a");
-      downloadLink.href = imageURI;
-      downloadLink.download = `story-${story.id.slice(0, 6)}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-    } catch (err) {
-      console.error("Error generating story image:", err);
-      alert("Failed to export story card image.");
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
   return (
-    <div className="min-h-screen py-12 px-4 max-w-6xl mx-auto flex flex-col items-center">
-      {/* Page Title */}
+    <div className="w-full pt-8 sm:pt-28 pb-36 px-4 flex flex-col items-center">
+      {/* Header aligned neatly under navbar */}
       <div className="text-center space-y-2 mb-8">
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-gray-900 dark:text-white">
-          Shared Moments
+          Share Your Moment
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-          Explore anonymous stories shared by people around the world.
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Express your feelings freely. No sign up required, completely anonymous.
         </p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-gray-200/70 dark:bg-gray-800/60 backdrop-blur-lg rounded-2xl mb-10">
-        {(["All", "Smile", "Sad"] as const).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`px-5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeFilter === filter
-                ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
-
-      {/* Loading Spinner */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <p className="text-xs">Fetching latest moments...</p>
-        </div>
-      ) : filteredStories.length === 0 ? (
-        /* Empty State */
-        <div className="text-center py-16 px-6 bg-gray-100/50 dark:bg-gray-800/30 rounded-3xl border border-gray-200/50 dark:border-gray-800">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            No moments found for this filter.
-          </p>
-        </div>
-      ) : (
-        /* Grid Display */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          {filteredStories.map((story) => {
-            const isSmile = story.mood?.toLowerCase().trim() === "smile";
-            const isDownloading = downloadingId === story.id;
-
-            return (
-              <div
-                key={story.id}
-                className="bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm flex flex-col justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all"
-              >
-                <div className="space-y-4">
-                  {/* Header: Mood Tag & IG Story Export Button */}
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                        isSmile
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {isSmile ? (
-                        <Smile className="w-3.5 h-3.5" />
-                      ) : (
-                        <Frown className="w-3.5 h-3.5" />
-                      )}
-                      {story.mood}
-                    </span>
-
-                    {/* Instagram/Facebook Story Export Button */}
-                    <button
-                      onClick={() => handleDownloadStoryCard(story)}
-                      disabled={isDownloading}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-black text-white dark:bg-white dark:text-black hover:opacity-80 transition-all shadow-sm disabled:opacity-50"
-                      title="Download image formatted for Instagram & Facebook Stories"
-                    >
-                      {isDownloading ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Download className="w-3 h-3" />
-                      )}
-                      <span>Story Image</span>
-                    </button>
-                  </div>
-
-                  {/* Optional Image */}
-                  {story.image_url && (
-                    <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5">
-                      <img
-                        src={story.image_url}
-                        alt={story.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {/* Title & Body Content */}
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug mb-2">
-                      {story.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                      {story.content}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Details */}
-                <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
-                  <span>By: <strong className="text-gray-700 dark:text-gray-200">{story.author_name}</strong></span>
-                  {story.target_person && (
-                    <span>For: <strong className="text-gray-700 dark:text-gray-200">{story.target_person}</strong></span>
-                  )}
-                </div>
+      {/* Main Form Block (Large & Roomy) */}
+      <div className="w-full max-w-3xl bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg p-8 sm:p-10 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 shadow-md">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Top Row: Mood & Title */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* Mood Selector */}
+            <div>
+              <label className="block text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase mb-2.5">
+                CURRENT VIBE <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-200/70 dark:bg-gray-900/50 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setMood("smile")}
+                  className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    mood === "smile"
+                      ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
+                      : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
+                  }`}
+                >
+                  Smile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMood("sad")}
+                  className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    mood === "sad"
+                      ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
+                      : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
+                  }`}
+                >
+                  Sad
+                </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+
+            {/* Title Input */}
+            <div>
+              <div className="flex justify-between items-center mb-2.5">
+                <label className="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase">
+                  HEADLINE <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-xs text-gray-400">
+                  {title.length}/30 (min 3)
+                </span>
+              </div>
+              <input
+                type="text"
+                required
+                maxLength={30}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Someone paid for my coffee"
+                className="w-full px-4 py-3 rounded-2xl border-0 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-black dark:focus:ring-white transition-all outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Middle Row: Names & Description */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* Optional Names Stack */}
+            <div className="space-y-5">
+              <div>
+                <div className="flex justify-between items-center mb-2.5">
+                  <label className="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase">
+                    POSTED BY <span className="text-gray-400 font-normal">(OPTIONAL)</span>
+                  </label>
+                  <span className="text-xs text-gray-400">
+                    {authorName.length}/25
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={25}
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="Leave blank for Anonymous"
+                  className="w-full px-4 py-3 rounded-2xl border-0 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-black dark:focus:ring-white transition-all outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2.5">
+                  <label className="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase">
+                    DEDICATED TO <span className="text-gray-400 font-normal">(OPTIONAL)</span>
+                  </label>
+                  <span className="text-xs text-gray-400">
+                    {targetName.length}/25
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={25}
+                  value={targetName}
+                  onChange={(e) => setTargetName(e.target.value)}
+                  placeholder="e.g. Kind Stranger / Bus Driver"
+                  className="w-full px-4 py-3 rounded-2xl border-0 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-black dark:focus:ring-white transition-all outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Description Area */}
+            <div className="flex flex-col">
+              <div className="flex justify-between items-center mb-2.5">
+                <label className="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase">
+                  WHAT HAPPENED? <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-xs text-gray-400">
+                  {description.length}/200 (min 3)
+                </span>
+              </div>
+              <textarea
+                required
+                rows={4}
+                maxLength={200}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Share the details... Small acts often leave big impacts!"
+                className="w-full flex-1 px-4 py-3.5 rounded-2xl border-0 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-black dark:focus:ring-white transition-all outline-none resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Attach Photo Field */}
+          <div>
+            <label className="block text-xs font-bold tracking-wider text-gray-600 dark:text-gray-300 uppercase mb-2.5">
+              ADD PHOTO <span className="text-gray-400 font-normal">(OPTIONAL)</span>
+            </label>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/png, image/jpeg, image/webp, image/gif"
+              className="hidden"
+            />
+
+            {previewUrl ? (
+              <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-black/5 flex items-center justify-center">
+                <img
+                  src={previewUrl}
+                  alt="Selected preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-900 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 group"
+              >
+                <ImagePlus className="w-6 h-6 text-gray-400 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Click to add an image (PNG, JPEG, WebP, GIF)
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Status Banners */}
+          {status === "success" && (
+            <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Success! Redirecting to stories...</span>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading || title.length < 3 || description.length < 3}
+            className="w-full py-4 rounded-2xl bg-gray-600 hover:bg-gray-700 dark:bg-gray-200 dark:hover:bg-white text-white dark:text-black font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Publishing...
+              </>
+            ) : (
+              "Publish Moment"
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

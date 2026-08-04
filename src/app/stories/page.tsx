@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Smile, Frown, Loader2 } from "lucide-react";
+import { Smile, Frown, Loader2, Download, Share2 } from "lucide-react";
 
 interface Story {
   id: string;
@@ -20,6 +20,7 @@ export default function StoriesPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"All" | "Smile" | "Sad">("All");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStories();
@@ -45,13 +46,123 @@ export default function StoriesPage() {
 
   const filteredStories = stories.filter((story) => {
     if (activeFilter === "All") return true;
-    
-    // Normalize both database value and filter selection to lowercase/trimmed for a bulletproof match
     const storyMood = story.mood?.toLowerCase().trim() || "";
     const filterMood = activeFilter.toLowerCase().trim();
-    
     return storyMood === filterMood;
   });
+
+  // Function to generate a downloadable story image for IG/FB stories
+  const handleDownloadStoryCard = async (story: Story) => {
+    setDownloadingId(story.id);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080; // Standard Instagram / Facebook Story width
+      canvas.height = 1920; // Standard Instagram / Facebook Story height
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) return;
+
+      // 1. Draw Background Gradient
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, "#f9fafb");
+      gradient.addColorStop(1, "#e5e7eb");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 2. Draw Central Card Background
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.1)";
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 20;
+      
+      const cardX = 90;
+      const cardY = 360;
+      const cardWidth = 900;
+      const cardHeight = 1200;
+      const radius = 40;
+
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, radius);
+      ctx.fill();
+      ctx.shadowBlur = 0; // Reset shadow
+
+      // 3. Draw Brand Watermark / Header inside card
+      ctx.font = "bold 32px sans-serif";
+      ctx.fillStyle = "#111827";
+      ctx.fillText("What Makes You Happy", cardX + 60, cardY + 90);
+
+      // 4. Draw Mood Badge Pill
+      const isSmile = story.mood?.toLowerCase().trim() === "smile";
+      ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)";
+      ctx.beginPath();
+      ctx.roundRect(cardX + 60, cardY + 130, 180, 50, 25);
+      ctx.fill();
+
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillStyle = isSmile ? "#059669" : "#d97706";
+      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", cardX + 85, cardY + 163);
+
+      // 5. Draw Story Title
+      ctx.font = "bold 52px sans-serif";
+      ctx.fillStyle = "#111827";
+      
+      // Word wrap title
+      const titleWords = story.title.split(" ");
+      let titleLine = "";
+      let titleY = cardY + 260;
+      for (let n = 0; n < titleWords.length; n++) {
+        const testLine = titleLine + titleWords[n] + " ";
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > 780 && n > 0) {
+          ctx.fillText(titleLine, cardX + 60, titleY);
+          titleLine = titleWords[n] + " ";
+          titleY += 65;
+        } else {
+          titleLine = testLine;
+        }
+      }
+      ctx.fillText(titleLine, cardX + 60, titleY);
+
+      // 6. Draw Story Content Body
+      ctx.font = "32px sans-serif";
+      ctx.fillStyle = "#4b5563";
+      let contentY = titleY + 80;
+      const words = story.content.split(" ");
+      let line = "";
+      
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + " ";
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > 780 && n > 0) {
+          ctx.fillText(line, cardX + 60, contentY);
+          line = words[n] + " ";
+          contentY += 50;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, cardX + 60, contentY);
+
+      // 7. Draw Footer Author details
+      ctx.font = "bold 28px sans-serif";
+      ctx.fillStyle = "#9ca3af";
+      ctx.fillText(`Shared by: ${story.author_name}`, cardX + 60, cardY + cardHeight - 80);
+
+      // 8. Convert Canvas to Downloadable Image Link
+      const imageURI = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.href = imageURI;
+      downloadLink.download = `story-${story.id.slice(0, 6)}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    } catch (err) {
+      console.error("Error generating story image:", err);
+      alert("Failed to export story card image.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen py-12 px-4 max-w-6xl mx-auto flex flex-col items-center">
@@ -96,17 +207,19 @@ export default function StoriesPage() {
           </p>
         </div>
       ) : (
-        /* Masonry / Grid Display */
+        /* Grid Display */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
           {filteredStories.map((story) => {
             const isSmile = story.mood?.toLowerCase().trim() === "smile";
+            const isDownloading = downloadingId === story.id;
+
             return (
               <div
                 key={story.id}
                 className="bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm flex flex-col justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all"
               >
                 <div className="space-y-4">
-                  {/* Header: Mood Tag & Date */}
+                  {/* Header: Mood Tag & IG Story Export Button */}
                   <div className="flex items-center justify-between">
                     <span
                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
@@ -123,12 +236,20 @@ export default function StoriesPage() {
                       {story.mood}
                     </span>
 
-                    <span className="text-[10px] text-gray-400">
-                      {new Date(story.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
+                    {/* Instagram/Facebook Story Export Button */}
+                    <button
+                      onClick={() => handleDownloadStoryCard(story)}
+                      disabled={isDownloading}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-black text-white dark:bg-white dark:text-black hover:opacity-80 transition-all shadow-sm disabled:opacity-50"
+                      title="Download image formatted for Instagram & Facebook Stories"
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Download className="w-3 h-3" />
+                      )}
+                      <span>Story Image</span>
+                    </button>
                   </div>
 
                   {/* Optional Image */}
