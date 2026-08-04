@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, TargetAndTransition } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart, Smile, Users, Loader2 } from "lucide-react";
@@ -14,17 +14,15 @@ interface Metrics {
   sadMoments: number;
 }
 
-// Explicitly typing the animation object to satisfy Framer Motion's TypeScript requirements
-const carouselAnimation: TargetAndTransition & { transition?: any } = {
-  animate: {
-    backgroundPosition: ["0% 0%", "-100% 0%"],
-  },
-  transition: {
-    duration: 20,
-    ease: "linear",
-    repeat: Infinity,
-    repeatType: "loop" as const,
-  },
+const carouselAnimation = {
+  backgroundPosition: ["0% 0%", "-100% 0%"],
+};
+
+const carouselTransition = {
+  duration: 20,
+  ease: "linear",
+  repeat: Infinity,
+  repeatType: "loop" as const,
 };
 
 export function Hero() {
@@ -198,7 +196,8 @@ export function Hero() {
 
       {/* Carousel Sliding Background Effect */}
       <motion.div
-        {...carouselAnimation}
+        animate={carouselAnimation}
+        transition={carouselTransition}
         className="absolute inset-0 z-0 opacity-30 scale-105 pointer-events-none"
         style={{
           background: `repeating-linear-gradient(
