@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, TargetAndTransition } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart, Smile, Users, Loader2 } from "lucide-react";
@@ -14,20 +14,16 @@ interface Metrics {
   sadMoments: number;
 }
 
-// Animation configuration for the carousel background slide
-const carouselAnimation = {
+// Explicitly typing the animation object to satisfy Framer Motion's TypeScript requirements
+const carouselAnimation: TargetAndTransition & { transition?: any } = {
   animate: {
-    // This animates the background-position to create a sliding effect.
-    // We start from 0% and move to -100% of the element's width,
-    // creating a seamless loop with the repeating linear-gradient below.
     backgroundPosition: ["0% 0%", "-100% 0%"],
   },
   transition: {
-    // Adjust the duration to control the speed of the slide (lower = faster)
-    duration: 20, 
-    ease: "linear", // Linear provides the constant speed of a carousel
-    repeat: Infinity, // Infinitely loop the animation
-    repeatType: "loop",
+    duration: 20,
+    ease: "linear",
+    repeat: Infinity,
+    repeatType: "loop" as const,
   },
 };
 
@@ -118,7 +114,7 @@ export function Hero() {
           A Place for Genuine Human Moments
         </motion.span>
 
-        {/* Clean, Bold Modern Sans-Serif Headline */}
+        {/* Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -200,21 +196,18 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Carousel / Scrolling Background Effect for Stories */}
-      {/* We apply a background gradient that repeats and animate its position */}
+      {/* Carousel Sliding Background Effect */}
       <motion.div
         {...carouselAnimation}
-        className="absolute inset-0 z-0 opacity-30 scale-105"
+        className="absolute inset-0 z-0 opacity-30 scale-105 pointer-events-none"
         style={{
-          // A repeating gradient that acts as the visual track for the carousel.
-          // It repeats transparent -> white -> transparent over 200% of the width.
           background: `repeating-linear-gradient(
             to right, 
             transparent 0%, 
             rgba(255, 255, 255, 0.5) 50%, 
             transparent 100%
           )`,
-          backgroundSize: "200% 100%", // Crucial: The gradient is wider than the container
+          backgroundSize: "200% 100%",
         }}
       />
     </section>
