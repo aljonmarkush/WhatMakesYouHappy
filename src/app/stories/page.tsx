@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Smile, Frown, Loader2, Calendar, User, Heart } from "lucide-react";
+import { Smile, Frown, Loader2 } from "lucide-react";
 
 interface Story {
   id: string;
   title: string;
   content: string;
-  mood: "Smile" | "Sad";
+  mood: string;
   author_name: string;
   target_person?: string | null;
   image_url?: string | null;
@@ -45,7 +45,12 @@ export default function StoriesPage() {
 
   const filteredStories = stories.filter((story) => {
     if (activeFilter === "All") return true;
-    return story.mood === activeFilter;
+    
+    // Normalize both database value and filter selection to lowercase/trimmed for a bulletproof match
+    const storyMood = story.mood?.toLowerCase().trim() || "";
+    const filterMood = activeFilter.toLowerCase().trim();
+    
+    return storyMood === filterMood;
   });
 
   return (
@@ -93,68 +98,71 @@ export default function StoriesPage() {
       ) : (
         /* Masonry / Grid Display */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          {filteredStories.map((story) => (
-            <div
-              key={story.id}
-              className="bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm flex flex-col justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all"
-            >
-              <div className="space-y-4">
-                {/* Header: Mood Tag & Date */}
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                      story.mood === "Smile"
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                    }`}
-                  >
-                    {story.mood === "Smile" ? (
-                      <Smile className="w-3.5 h-3.5" />
-                    ) : (
-                      <Frown className="w-3.5 h-3.5" />
-                    )}
-                    {story.mood}
-                  </span>
+          {filteredStories.map((story) => {
+            const isSmile = story.mood?.toLowerCase().trim() === "smile";
+            return (
+              <div
+                key={story.id}
+                className="bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm flex flex-col justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+              >
+                <div className="space-y-4">
+                  {/* Header: Mood Tag & Date */}
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
+                        isSmile
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                      }`}
+                    >
+                      {isSmile ? (
+                        <Smile className="w-3.5 h-3.5" />
+                      ) : (
+                        <Frown className="w-3.5 h-3.5" />
+                      )}
+                      {story.mood}
+                    </span>
 
-                  <span className="text-[10px] text-gray-400">
-                    {new Date(story.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-
-                {/* Optional Image */}
-                {story.image_url && (
-                  <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5">
-                    <img
-                      src={story.image_url}
-                      alt={story.title}
-                      className="w-full h-full object-cover"
-                    />
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(story.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
                   </div>
-                )}
 
-                {/* Title & Body Content */}
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug mb-2">
-                    {story.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                    {story.content}
-                  </p>
+                  {/* Optional Image */}
+                  {story.image_url && (
+                    <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5">
+                      <img
+                        src={story.image_url}
+                        alt={story.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {/* Title & Body Content */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug mb-2">
+                      {story.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      {story.content}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer Details */}
+                <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
+                  <span>By: <strong className="text-gray-700 dark:text-gray-200">{story.author_name}</strong></span>
+                  {story.target_person && (
+                    <span>For: <strong className="text-gray-700 dark:text-gray-200">{story.target_person}</strong></span>
+                  )}
                 </div>
               </div>
-
-              {/* Footer Details */}
-              <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
-                <span>By: <strong className="text-gray-700 dark:text-gray-200">{story.author_name}</strong></span>
-                {story.target_person && (
-                  <span>For: <strong className="text-gray-700 dark:text-gray-200">{story.target_person}</strong></span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
