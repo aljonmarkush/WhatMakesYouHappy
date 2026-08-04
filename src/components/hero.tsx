@@ -34,15 +34,22 @@ export function Hero() {
     try {
       const { data, error } = await supabase
         .from("stories")
-        .select("mood")
-        .eq("is_approved", true);
+        .select("mood");
 
       if (error) throw error;
 
       if (data) {
         const totalStories = data.length;
-        const smileMoments = data.filter((s) => s.mood === "Smile").length;
-        const sadMoments = data.filter((s) => s.mood === "Sad").length;
+        
+        const smileMoments = data.filter((s) => {
+          const m = s.mood?.toLowerCase().trim() || "";
+          return m === "smile";
+        }).length;
+
+        const sadMoments = data.filter((s) => {
+          const m = s.mood?.toLowerCase().trim() || "";
+          return m === "sad";
+        }).length;
 
         setMetrics({ totalStories, smileMoments, sadMoments });
       }
@@ -169,7 +176,7 @@ export function Hero() {
               {loading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
               ) : (
-                `${metrics.sadMoments.toLocaleString()} Moments Supported`
+                `${metrics.sadMoments.toLocaleString()} Sad Moments`
               )}
             </span>
           </div>
