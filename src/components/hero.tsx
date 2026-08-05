@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, Smile, Users, Loader2, MessageSquare, Bookmark, Share2 } from "lucide-react";
+import { Heart, Smile, Users, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
@@ -12,17 +12,6 @@ interface Metrics {
   totalStories: number;
   smileMoments: number;
   sadMoments: number;
-}
-
-interface Story {
-  id: string;
-  title: string;
-  content: string;
-  mood: string;
-  author_name: string;
-  target_person?: string | null;
-  image_url?: string | null;
-  created_at: string;
 }
 
 const carouselAnimation = {
@@ -45,20 +34,18 @@ export function Hero() {
     smileMoments: 0,
     sadMoments: 0,
   });
-  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    fetchData();
+    fetchMetrics();
   }, []);
 
-  const fetchData = async () => {
+  const fetchMetrics = async () => {
     try {
       const { data, error } = await supabase
         .from("stories")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("mood");
 
       if (error) throw error;
 
@@ -76,20 +63,15 @@ export function Hero() {
         }).length;
 
         setMetrics({ totalStories, smileMoments, sadMoments });
-
-        const approvedStories = data.filter((s) => s.is_approved ?? true).slice(0, 10);
-        setStories(approvedStories);
       }
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("Error fetching hero metrics:", err);
     } finally {
       setLoading(false);
     }
   };
 
   if (!mounted) return null;
-
-  const duplicatedStories = stories.length > 0 ? [...stories, ...stories] : [];
 
   return (
     <section className="relative w-full flex flex-col justify-center items-center text-center px-4 pt-20 pb-16 bg-gradient-to-b from-brand-white via-amber-50/30 to-emerald-50/20 dark:from-brand-dark dark:via-gray-900 dark:to-emerald-950/20 overflow-hidden">
@@ -210,104 +192,6 @@ export function Hero() {
             </span>
           </div>
         </motion.div>
-      </div>
-
-      {/* Animated Infinite Marquee Carousel Section */}
-      <div className="w-full max-w-7xl mx-auto mt-16 z-10 px-4">
-        <div className="text-left mb-6">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-brand-dark dark:text-brand-white">
-            Recent Stories
-          </h2>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-          </div>
-        ) : stories.length === 0 ? (
-          <div className="text-sm text-gray-500 py-6">No recent stories found.</div>
-        ) : (
-          <div className="relative w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)]">
-            <motion.div
-              className="flex gap-6 w-max"
-              animate={{
-                x: ["0%", "-50%"],
-              }}
-              transition={{
-                duration: 40,
-                ease: "linear" as const,
-                repeat: Infinity,
-                repeatType: "loop" as const,
-              }}
-            >
-              {duplicatedStories.map((story, idx) => {
-                const moodLower = story.mood?.toLowerCase().trim() || "";
-                const isSmile = moodLower.includes("smile") || moodLower.includes("happy");
-
-                return (
-                  <div
-                    key={`${story.id}-${idx}`}
-                    className="w-[360px] bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between text-left shrink-0"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
-                          {isSmile ? "😊 Smile" : "🌧️ Sad"}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {new Date(story.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-
-                      {story.image_url && (
-                        <div className="w-full h-36 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900">
-                          <img
-                            src={story.image_url}
-                            alt={story.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div>
-                        <h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug mb-1 truncate">
-                          {story.title}
-                        </h3>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
-                          {story.content}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-semibold text-[10px] text-gray-600 dark:text-gray-300">
-                          {story.author_name ? story.author_name.charAt(0).toUpperCase() : "A"}
-                        </span>
-                        <span className="truncate max-w-[120px]">{story.author_name || "Anonymous"}</span>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-gray-400">
-                        <button className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                          <Heart className="w-4 h-4" />
-                        </button>
-                        <button className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        <button className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                          <Bookmark className="w-4 h-4" />
-                        </button>
-                        <button className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </motion.div>
-          </div>
-        )}
       </div>
 
       {/* Carousel Sliding Background Effect */}
