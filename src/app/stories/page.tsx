@@ -1,415 +1,214 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Heart, Smile, Users, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Smile, Frown, Loader2, Share2, Download, X } from "lucide-react";
 
-interface Story {
-  id: string;
-  title: string;
-  content: string;
-  mood: string;
-  author_name: string;
-  target_person?: string | null;
-  image_url?: string | null;
-  created_at: string;
+const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
+
+interface Metrics {
+  totalStories: number;
+  smileMoments: number;
+  sadMoments: number;
 }
 
-export default function StoriesPage() {
+const carouselAnimation = {
+  backgroundPosition: ["0% 0%", "-100% 0%"],
+};
+
+const carouselTransition = {
+  duration: 20,
+  ease: "linear" as const,
+  repeat: Infinity,
+  repeatType: "loop" as const,
+};
+
+export function Hero() {
   const supabase = createClient();
-  const [stories, setStories] = useState<Story[]>([]);
+
+  const [mounted, setMounted] = useState(false);
+  const [metrics, setMetrics] = useState<Metrics>({
+    totalStories: 0,
+    smileMoments: 0,
+    sadMoments: 0,
+  });
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<"All" | "Smile" | "Sad">("All");
-  
-  // Modal & Preview state
-  const [previewStory, setPreviewStory] = useState<Story | null>(null);
-  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
-  const [generatingPreview, setGeneratingPreview] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    fetchStories();
+    setMounted(true);
+    fetchData();
   }, []);
 
-  const fetchStories = async () => {
-    setLoading(true);
+  const fetchData = async () => {
     try {
       const { data, error } = await supabase
         .from("stories")
-        .select("*")
-        .eq("is_approved", true)
-        .order("created_at", { ascending: false });
+        .select("*");
 
       if (error) throw error;
-      setStories(data || []);
+
+      if (data) {
+        const totalStories = data.length;
+        
+        const smileMoments = data.filter((s) => {
+          const m = s.mood?.toLowerCase().trim() || "";
+          return m.includes("smile") || m.includes("happy");
+        }).length;
+
+        const sadMoments = data.filter((s) => {
+          const m = s.mood?.toLowerCase().trim() || "";
+          return m.includes("sad");
+        }).length;
+
+        setMetrics({ totalStories, smileMoments, sadMoments });
+      }
     } catch (err) {
-      console.error("Error fetching stories:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredStories = stories.filter((story) => {
-    if (activeFilter === "All") return true;
-    const storyMood = story.mood?.toLowerCase().trim() || "";
-    const filterMood = activeFilter.toLowerCase().trim();
-    return storyMood === filterMood;
-  });
-
-  // Helper to cleanly load images with CORS support
-  const loadImage = (url: string): Promise<HTMLImageElement | null> => {
-    return new Promise((resolve) => {
-      if (!url) {
-        resolve(null);
-        return;
-      }
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        console.warn("Failed to load image for canvas:", url);
-        resolve(null);
-      };
-      img.src = url;
-    });
-  };
-
-  // Generate Canvas Preview with precise line positioning (No overlapping)
-  const handleOpenPreview = async (story: Story) => {
-    setPreviewStory(story);
-    setGeneratingPreview(true);
-
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1920;
-      const ctx = canvas.getContext("2d");
-
-      if (!ctx) throw new Error("Could not initialize canvas.");
-
-      // 1. Background gradient
-      const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      bgGradient.addColorStop(0, "#111827");
-      bgGradient.addColorStop(1, "#1f2937");
-      ctx.fillStyle = bgGradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 2. Central Card Background
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 20;
-      
-      const cardX = 90;
-      const cardY = 160;
-      const cardWidth = 900;
-      const cardHeight = 1600;
-      const radius = 48;
-
-      ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, radius);
-      ctx.fill();
-      ctx.shadowBlur = 0; // Reset shadow
-
-      let currentY = cardY + 75;
-      const textLeft = cardX + 70;
-      const maxTextWidth = 760;
-
-      // 3. Brand Header
-      ctx.font = "bold 26px sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText("WHAT MAKES YOU HAPPY", textLeft, currentY);
-      currentY += 50;
-
-      // 4. Mood Badge Pill
-      const isSmile = story.mood?.toLowerCase().trim() === "smile";
-      ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)";
-      ctx.beginPath();
-      ctx.roundRect(textLeft, currentY, 210, 48, 24);
-      ctx.fill();
-
-      ctx.font = "bold 22px sans-serif";
-      ctx.fillStyle = isSmile ? "#059669" : "#d97706";
-      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 22, currentY + 31);
-      currentY += 75;
-
-      // 5. Optional Image Rendering
-      if (story.image_url) {
-        const loadedImg = await loadImage(story.image_url);
-        if (loadedImg) {
-          const imgWidth = 760;
-          const imgHeight = 380;
-          
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(textLeft, currentY, imgWidth, imgHeight, 20);
-          ctx.clip();
-          ctx.drawImage(loadedImg, textLeft, currentY, imgWidth, imgHeight);
-          ctx.restore();
-          
-          currentY += imgHeight + 40;
-        }
-      }
-
-      // 6. Title Text Wrap
-      ctx.font = "bold 42px sans-serif";
-      ctx.fillStyle = "#111827";
-      const titleWords = story.title.split(" ");
-      let titleLine = "";
-      
-      for (let n = 0; n < titleWords.length; n++) {
-        const testLine = titleLine + titleWords[n] + " ";
-        if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
-          ctx.fillText(titleLine, textLeft, currentY);
-          titleLine = titleWords[n] + " ";
-          currentY += 52; // Push down for next line
-        } else {
-          titleLine = testLine;
-        }
-      }
-      ctx.fillText(titleLine, textLeft, currentY);
-      currentY += 55; // Space after title
-
-      // 7. Body Content Text Wrap
-      ctx.font = "28px sans-serif";
-      ctx.fillStyle = "#4b5563";
-      const contentWords = story.content.split(" ");
-      let contentLine = "";
-
-      for (let n = 0; n < contentWords.length; n++) {
-        const testLine = contentLine + contentWords[n] + " ";
-        if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
-          ctx.fillText(contentLine, textLeft, currentY);
-          contentLine = contentWords[n] + " ";
-          currentY += 40; // Push down for next line
-          if (currentY > cardY + cardHeight - 80) break; // Prevent overflow out of card
-        } else {
-          contentLine = testLine;
-        }
-      }
-      ctx.fillText(contentLine, textLeft, currentY);
-
-      // 8. Footer Author (Fixed at bottom of card)
-      ctx.font = "bold 24px sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText(`Shared by: ${story.author_name}`, textLeft, cardY + cardHeight - 50);
-
-      setPreviewDataUrl(canvas.toDataURL("image/png"));
-    } catch (err) {
-      console.error("Error generating preview:", err);
-    } finally {
-      setGeneratingPreview(false);
-    }
-  };
-
-  const handleDownloadImage = () => {
-    if (!previewDataUrl || !previewStory) return;
-    setDownloading(true);
-    try {
-      const downloadLink = document.createElement("a");
-      downloadLink.href = previewDataUrl;
-      downloadLink.download = `story-${previewStory.id.slice(0, 6)}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-    } catch (err) {
-      console.error("Download failed:", err);
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const handleNativeShare = async () => {
-    if (!previewDataUrl) return;
-    try {
-      const res = await fetch(previewDataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], "story-card.png", { type: "image/png" });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: "Shared Moment",
-          text: "Check out this moment on What Makes You Happy!",
-        });
-      } else {
-        handleDownloadImage();
-      }
-    } catch (err) {
-      console.error("Native share error:", err);
-      handleDownloadImage();
-    }
-  };
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen py-12 px-4 max-w-6xl mx-auto flex flex-col items-center">
-      {/* Page Title */}
-      <div className="text-center space-y-2 mb-8">
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-gray-900 dark:text-white">
-          Shared Moments
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-          Explore anonymous stories shared by people around the world.
-        </p>
-      </div>
+    <section className="relative w-full flex flex-col justify-center items-center text-center px-4 pt-20 pb-20 bg-gradient-to-b from-brand-white via-amber-50/30 to-emerald-50/20 dark:from-brand-dark dark:via-gray-900 dark:to-emerald-950/20 overflow-hidden">
+      {/* Floating Emojis Background */}
+      {EMOJIS.map((emoji, idx) => (
+        <motion.div
+          key={idx}
+          className="absolute text-3xl select-none pointer-events-none opacity-30"
+          initial={{
+            x: Math.sin(idx) * 250,
+            y: Math.cos(idx) * 150,
+          }}
+          animate={{
+            y: [0, -20, 0],
+            rotate: [0, 10, -10, 0],
+          }}
+          transition={{
+            duration: 4 + idx,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          style={{
+            top: `${15 + idx * 12}%`,
+            left: `${10 + idx * 14}%`,
+          }}
+        >
+          {emoji}
+        </motion.div>
+      ))}
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-gray-200/70 dark:bg-gray-800/60 backdrop-blur-lg rounded-2xl mb-10">
-        {(["All", "Smile", "Sad"] as const).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`px-5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeFilter === filter
-                ? "bg-black text-white dark:bg-white dark:text-black shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
-            }`}
+      {/* Main Content */}
+      <div className="max-w-4xl z-10 space-y-6">
+        <motion.span
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-brand-green/10 dark:bg-brand-gold/10 text-brand-green dark:text-brand-gold border border-brand-green/20 dark:border-brand-gold/20 backdrop-blur-md inline-block"
+        >
+          A Place for Genuine Human Moments
+        </motion.span>
+
+        {/* Headline */}
+        <motion.h1
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="text-4xl md:text-6xl font-extrabold tracking-tight text-brand-dark dark:text-brand-white"
+        >
+          What Makes You Happy?
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-base md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed"
+        >
+          Every smile has a story. Every difficult day deserves to be heard.
+          Share your moments and inspire someone today.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
+        >
+          <Link
+            href="/create"
+            className="w-full sm:w-auto px-8 py-3.5 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black font-semibold rounded-2xl shadow-md transition-all duration-300 transform hover:-translate-y-0.5 text-sm"
           >
-            {filter}
-          </button>
-        ))}
+            Share Your Story
+          </Link>
+          <Link
+            href="/stories"
+            className="w-full sm:w-auto px-8 py-3.5 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200 dark:border-gray-700 text-brand-dark dark:text-brand-white font-semibold rounded-2xl hover:bg-white/80 dark:hover:bg-gray-800 transition-all duration-300 text-sm"
+          >
+            Browse Stories
+          </Link>
+        </motion.div>
+
+        {/* Dynamic Live Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-6 max-w-3xl mx-auto"
+        >
+          <div className="p-3.5 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Heart className="w-4 h-4 text-rose-500" />
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+              {loading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+              ) : (
+                `${metrics.totalStories.toLocaleString()} Stories Shared`
+              )}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Smile className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+              {loading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+              ) : (
+                `${metrics.smileMoments.toLocaleString()} Happy Moments`
+              )}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Users className="w-4 h-4 text-indigo-500" />
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+              {loading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+              ) : (
+                `${metrics.sadMoments.toLocaleString()} Sad Moments`
+              )}
+            </span>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Loading Spinner */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <p className="text-xs">Fetching latest moments...</p>
-        </div>
-      ) : filteredStories.length === 0 ? (
-        <div className="text-center py-16 px-6 bg-gray-100/50 dark:bg-gray-800/30 rounded-3xl border border-gray-200/50 dark:border-gray-800">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            No moments found for this filter.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          {filteredStories.map((story) => {
-            const isSmile = story.mood?.toLowerCase().trim() === "smile";
-
-            return (
-              <div
-                key={story.id}
-                className="bg-gray-100/80 dark:bg-gray-800/60 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-sm flex flex-col justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                        isSmile
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {isSmile ? <Smile className="w-3.5 h-3.5" /> : <Frown className="w-3.5 h-3.5" />}
-                      {story.mood}
-                    </span>
-
-                    {/* Share Button */}
-                    <button
-                      onClick={() => handleOpenPreview(story)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-black text-white dark:bg-white dark:text-black hover:opacity-80 transition-all shadow-sm"
-                    >
-                      <Share2 className="w-3 h-3" />
-                      <span>Share</span>
-                    </button>
-                  </div>
-
-                  {/* Feed Image Display */}
-                  {story.image_url && (
-                    <div className="w-full h-48 rounded-2xl overflow-hidden bg-black/5 border border-gray-200/40 dark:border-gray-700/40">
-                      <img
-                        src={story.image_url}
-                        alt={story.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-snug mb-2">
-                      {story.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                      {story.content}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
-                  <span>By: <strong className="text-gray-700 dark:text-gray-200">{story.author_name}</strong></span>
-                  {story.target_person && (
-                    <span>For: <strong className="text-gray-700 dark:text-gray-200">{story.target_person}</strong></span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Preview Modal */}
-      {previewStory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">Share Story Card</h3>
-                <p className="text-xs text-gray-500">Preview & share your story image card</p>
-              </div>
-              <button
-                onClick={() => setPreviewStory(null)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Canvas Preview Image */}
-            <div className="flex-1 overflow-y-auto flex items-center justify-center bg-gray-100 dark:bg-gray-950 rounded-2xl p-4 my-2 border border-gray-200/50 dark:border-gray-800">
-              {generatingPreview ? (
-                <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="text-xs">Generating preview card...</span>
-                </div>
-              ) : previewDataUrl ? (
-                <img
-                  src={previewDataUrl}
-                  alt="Story Card Preview"
-                  className="max-h-[400px] rounded-xl shadow-lg object-contain"
-                />
-              ) : null}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <button
-                onClick={handleDownloadImage}
-                disabled={generatingPreview || downloading}
-                className="py-3 px-4 bg-black text-white dark:bg-white dark:text-black font-semibold rounded-2xl text-xs hover:opacity-90 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                <span>Download Story Image</span>
-              </button>
-
-              <button
-                onClick={handleNativeShare}
-                disabled={generatingPreview}
-                className="py-3 px-4 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold rounded-2xl text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share via App</span>
-              </button>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 space-y-1">
-              <p>1. Click <strong>Download Story Image</strong> to save the card.</p>
-              <p>2. Open Instagram or Facebook on your device.</p>
-              <p>3. Create a new Story and select your downloaded card.</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Carousel Sliding Background Effect */}
+      <motion.div
+        animate={carouselAnimation}
+        transition={carouselTransition}
+        className="absolute inset-0 z-0 opacity-30 scale-105 pointer-events-none"
+        style={{
+          background: `repeating-linear-gradient(
+            to right, 
+            transparent 0%, 
+            rgba(255, 255, 255, 0.5) 50%, 
+            transparent 100%
+          )`,
+          backgroundSize: "200% 100%",
+        }}
+      />
+    </section>
   );
 }
