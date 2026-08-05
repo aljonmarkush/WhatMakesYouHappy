@@ -55,7 +55,6 @@ export function Hero() {
 
   const fetchData = async () => {
     try {
-      // Fetch metrics and recent stories simultaneously
       const { data, error } = await supabase
         .from("stories")
         .select("*")
@@ -78,7 +77,6 @@ export function Hero() {
 
         setMetrics({ totalStories, smileMoments, sadMoments });
 
-        // Filter approved or just use the latest ones (limit to 6 for the carousel)
         const approvedStories = data.filter((s) => s.is_approved ?? true).slice(0, 6);
         setStories(approvedStories);
       }
@@ -91,7 +89,6 @@ export function Hero() {
 
   if (!mounted) return null;
 
-  // Duplicate stories array to create a seamless infinite marquee animation loop
   const duplicatedStories = stories.length > 0 ? [...stories, ...stories] : [];
 
   return (
