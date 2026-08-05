@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, Smile, Users, Loader2 } from "lucide-react";
+import { Heart, Smile, Users, Loader2, Frown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
@@ -12,6 +12,17 @@ interface Metrics {
   totalStories: number;
   smileMoments: number;
   sadMoments: number;
+}
+
+interface Story {
+  id: string;
+  title: string;
+  content: string;
+  mood: string;
+  author_name: string;
+  target_person?: string | null;
+  image_url?: string | null;
+  created_at: string;
 }
 
 const carouselAnimation = {
@@ -34,18 +45,21 @@ export function Hero() {
     smileMoments: 0,
     sadMoments: 0,
   });
+  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    fetchMetrics();
+    fetchData();
   }, []);
 
-  const fetchMetrics = async () => {
+  const fetchData = async () => {
     try {
+      // Fetch metrics and recent stories simultaneously
       const { data, error } = await supabase
         .from("stories")
-        .select("mood");
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -63,15 +77,22 @@ export function Hero() {
         }).length;
 
         setMetrics({ totalStories, smileMoments, sadMoments });
+
+        // Filter approved or just use the latest ones (limit to 6 for the carousel)
+        const approvedStories = data.filter((s) => s.is_approved ?? true).slice(0, 6);
+        setStories(approvedStories);
       }
     } catch (err) {
-      console.error("Error fetching hero metrics:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
     }
   };
 
   if (!mounted) return null;
+
+  // Duplicate stories array to create a seamless infinite marquee animation loop
+  const duplicatedStories = stories.length > 0 ? [...stories, ...stories] : [];
 
   return (
     <section className="relative w-full flex flex-col justify-center items-center text-center px-4 pt-20 pb-16 bg-gradient-to-b from-brand-white via-amber-50/30 to-emerald-50/20 dark:from-brand-dark dark:via-gray-900 dark:to-emerald-950/20 overflow-hidden">
@@ -192,6 +213,94 @@ export function Hero() {
             </span>
           </div>
         </motion.div>
+      </div>
+
+      {/* Recent Stories Marquee Carousel Section */}
+      <div className="w-full max-w-7xl mx-auto mt-16 z-10 px-4">
+        <div className="text-left mb-6">
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-brand-dark dark:text-brand-white">
+            Recent Stories
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : stories.length === 0 ? (
+          <div className="text-sm text-gray-500 py-6">No recent stories found.</div>
+        ) : (
+          <div className="relative w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)]">
+            <motion.div
+              className="flex gap-6 w-max"
+              animate={{
+                x: ["0%", "-50%"],
+              }}
+              transition={{
+                duration: 35,
+                ease: "linear" as const,
+                repeat: Infinity,
+                repeatType: "loop" as const,
+              }}
+            >
+              {duplicatedStories.map((story, idx) => {
+                const moodLower = story.mood?.toLowerCase().trim() || "";
+                const isSmile = moodLower.includes("smile") || moodLower.includes("happy");
+
+                return (
+                  <div
+                    key={`${story.id}-${idx}`}
+                    className="w-[350px] sm:w-[380px] bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/60 dark:border-gray-700/60 shadow-sm flex flex-col justify-between text-left shrink-0"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
+                            isSmile
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                          }`}
+                        >
+                          {isSmile ? <Smile className="w-3.5 h-3.5" /> : <Frown className="w-3.5 h-3.5" />}
+                          {story.mood}
+                        </span>
+                        <span className="text-[11px] text-gray-400">
+                          {new Date(story.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {story.image_url && (
+                        <div className="w-full h-40 rounded-2xl overflow-hidden bg-black/5">
+                          <img
+                            src={story.image_url}
+                            alt={story.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug mb-1.5 truncate">
+                          {story.title}
+                        </h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
+                          {story.content}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-3 border-t border-gray-100 dark:border-gray-700/50 text-[11px] text-gray-500 flex justify-between">
+                      <span>By: <strong className="text-gray-700 dark:text-gray-200">{story.author_name}</strong></span>
+                      {story.target_person && (
+                        <span>For: <strong className="text-gray-700 dark:text-gray-200">{story.target_person}</strong></span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+          </div>
+        )}
       </div>
 
       {/* Carousel Sliding Background Effect */}
