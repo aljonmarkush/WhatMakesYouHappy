@@ -35,13 +35,11 @@ export function StoryCard({ story }: StoryProps) {
       className="break-inside-avoid mb-6 rounded-3xl bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border border-gray-100 dark:border-gray-800/80 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group"
     >
       {story.image_url && (
-        <div className="relative h-64 w-full overflow-hidden">
-          <Image
+        <div className="relative h-64 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+          <img
             src={story.image_url}
             alt={story.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>
       )}
@@ -58,7 +56,7 @@ export function StoryCard({ story }: StoryProps) {
             {isHappy ? "😊 Smile" : "😔 Sad"}
           </span>
           <span className="text-xs text-gray-400">
-            {new Date(story.created_at).toLocaleDateString()}
+            {story.created_at ? new Date(story.created_at).toLocaleDateString() : ""}
           </span>
         </div>
 
