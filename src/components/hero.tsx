@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, Smile, Users, Loader2, Frown, MessageSquare, Bookmark, Share2 } from "lucide-react";
+import { Heart, Smile, Users, Loader2, MessageSquare, Bookmark, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
@@ -92,7 +92,7 @@ export function Hero() {
   const duplicatedStories = stories.length > 0 ? [...stories, ...stories] : [];
 
   return (
-    <section className="relative w-full flex flex-col justify-center items-center text-center px-4 pt-20 pb-16 bg-gradient-to-b from-brand-white via-amber-50/30 to-emerald-50/20 dark:from-brand-dark dark:via-gray-900 dark:to-emerald-950/20 overflow-hidden">
+    <section className="relative w-full flex flex-col justify-center items-center text-center px-4 pt-16 pb-12 bg-gradient-to-b from-brand-white via-amber-50/30 to-emerald-50/20 dark:from-brand-dark dark:via-gray-900 dark:to-emerald-950/20 overflow-hidden">
       {/* Floating Emojis Background */}
       {EMOJIS.map((emoji, idx) => (
         <motion.div
@@ -121,7 +121,7 @@ export function Hero() {
       ))}
 
       {/* Main Content */}
-      <div className="max-w-4xl z-10 space-y-6">
+      <div className="max-w-4xl z-10 space-y-5">
         <motion.span
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -154,7 +154,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-1"
         >
           <Link
             href="/create"
@@ -175,10 +175,10 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 max-w-3xl mx-auto"
+          className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 max-w-3xl mx-auto"
         >
-          <div className="p-4 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
-            <Heart className="w-5 h-5 text-rose-500" />
+          <div className="p-3 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Heart className="w-4 h-4 text-rose-500" />
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
               {loading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
@@ -188,8 +188,8 @@ export function Hero() {
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
-            <Smile className="w-5 h-5 text-amber-500" />
+          <div className="p-3 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Smile className="w-4 h-4 text-amber-500" />
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
               {loading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
@@ -199,8 +199,8 @@ export function Hero() {
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
-            <Users className="w-5 h-5 text-indigo-500" />
+          <div className="p-3 rounded-2xl bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-gray-800 shadow-sm flex items-center justify-center gap-3">
+            <Users className="w-4 h-4 text-indigo-500" />
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
               {loading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
@@ -213,13 +213,13 @@ export function Hero() {
       </div>
 
       {/* Smooth Infinite Marquee Carousel Section */}
-      <div className="w-full max-w-7xl mx-auto mt-16 z-10 px-4">
+      <div className="w-full max-w-7xl mx-auto mt-10 z-10 px-4">
         {loading ? (
-          <div className="flex justify-center py-12">
+          <div className="flex justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
           </div>
         ) : stories.length === 0 ? (
-          <div className="text-sm text-gray-500 py-6">No recent stories found.</div>
+          <div className="text-sm text-gray-500 py-4">No recent stories found.</div>
         ) : (
           <div className="relative w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)]">
             <motion.div
