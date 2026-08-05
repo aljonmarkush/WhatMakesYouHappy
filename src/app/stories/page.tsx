@@ -74,7 +74,22 @@ export default function StoriesPage() {
     });
   };
 
-  // Generate Canvas Preview with precise line positioning (No overlapping)
+  // Safe round rect helper for universal canvas compatibility
+  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  };
+
+  // Generate Canvas Preview cleanly
   const handleOpenPreview = async (story: Story) => {
     setPreviewStory(story);
     setGeneratingPreview(true);
@@ -95,28 +110,28 @@ export default function StoriesPage() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // 2. Central Card Background
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 20;
-      
       const cardX = 90;
       const cardY = 160;
       const cardWidth = 900;
       const cardHeight = 1600;
-      const radius = 48;
+      const radius = 40;
 
-      ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, radius);
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+      ctx.shadowBlur = 50;
+      ctx.shadowOffsetY = 25;
+
+      ctx.fillStyle = "#ffffff";
+      drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
       ctx.fill();
-      ctx.shadowBlur = 0; // Reset shadow
+      ctx.restore();
 
-      let currentY = cardY + 75;
+      let currentY = cardY + 80;
       const textLeft = cardX + 70;
       const maxTextWidth = 760;
 
       // 3. Brand Header
-      ctx.font = "bold 26px sans-serif";
+      ctx.font = "bold 24px sans-serif";
       ctx.fillStyle = "#9ca3af";
       ctx.fillText("WHAT MAKES YOU HAPPY", textLeft, currentY);
       currentY += 50;
@@ -124,25 +139,23 @@ export default function StoriesPage() {
       // 4. Mood Badge Pill
       const isSmile = story.mood?.toLowerCase().trim() === "smile";
       ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)";
-      ctx.beginPath();
-      ctx.roundRect(textLeft, currentY, 210, 48, 24);
+      drawRoundedRect(ctx, textLeft, currentY, 220, 50, 25);
       ctx.fill();
 
       ctx.font = "bold 22px sans-serif";
       ctx.fillStyle = isSmile ? "#059669" : "#d97706";
-      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 22, currentY + 31);
-      currentY += 75;
+      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 24, currentY + 32);
+      currentY += 80;
 
       // 5. Optional Image Rendering
       if (story.image_url) {
         const loadedImg = await loadImage(story.image_url);
         if (loadedImg) {
           const imgWidth = 760;
-          const imgHeight = 380;
+          const imgHeight = 360;
           
           ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(textLeft, currentY, imgWidth, imgHeight, 20);
+          drawRoundedRect(ctx, textLeft, currentY, imgWidth, imgHeight, 20);
           ctx.clip();
           ctx.drawImage(loadedImg, textLeft, currentY, imgWidth, imgHeight);
           ctx.restore();
@@ -152,7 +165,7 @@ export default function StoriesPage() {
       }
 
       // 6. Title Text Wrap
-      ctx.font = "bold 42px sans-serif";
+      ctx.font = "bold 40px sans-serif";
       ctx.fillStyle = "#111827";
       const titleWords = story.title.split(" ");
       let titleLine = "";
@@ -162,17 +175,17 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
           ctx.fillText(titleLine, textLeft, currentY);
           titleLine = titleWords[n] + " ";
-          currentY += 52; // Push down for next line
+          currentY += 50;
         } else {
           titleLine = testLine;
         }
       }
       ctx.fillText(titleLine, textLeft, currentY);
-      currentY += 55; // Space after title
+      currentY += 60;
 
       // 7. Body Content Text Wrap
-      ctx.font = "28px sans-serif";
-      ctx.fillStyle = "#4b5563";
+      ctx.font = "26px sans-serif";
+      ctx.fillStyle = " #4b5563";
       const contentWords = story.content.split(" ");
       let contentLine = "";
 
@@ -181,8 +194,8 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
           ctx.fillText(contentLine, textLeft, currentY);
           contentLine = contentWords[n] + " ";
-          currentY += 40; // Push down for next line
-          if (currentY > cardY + cardHeight - 80) break; // Prevent overflow out of card
+          currentY += 38;
+          if (currentY > cardY + cardHeight - 100) break;
         } else {
           contentLine = testLine;
         }
@@ -190,7 +203,7 @@ export default function StoriesPage() {
       ctx.fillText(contentLine, textLeft, currentY);
 
       // 8. Footer Author (Fixed at bottom of card)
-      ctx.font = "bold 24px sans-serif";
+      ctx.font = "bold 22px sans-serif";
       ctx.fillStyle = "#9ca3af";
       ctx.fillText(`Shared by: ${story.author_name}`, textLeft, cardY + cardHeight - 50);
 
