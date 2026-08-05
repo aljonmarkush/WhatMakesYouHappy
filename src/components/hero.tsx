@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, Smile, Users, Loader2, Frown, MessageSquare, Bookmark, Share2 } from "lucide-react";
+import { Heart, Smile, Users, Loader2, MessageSquare, Bookmark, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
@@ -212,7 +212,7 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Recent Stories Carousel Section (Using card design matching your screenshot style) */}
+      {/* Animated Infinite Marquee Carousel Section */}
       <div className="w-full max-w-7xl mx-auto mt-16 z-10 px-4">
         <div className="text-left mb-6">
           <h2 className="text-xl md:text-2xl font-bold tracking-tight text-brand-dark dark:text-brand-white">
