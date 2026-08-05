@@ -59,20 +59,25 @@ export default function CreateStoryPage() {
       if (selectedFile) {
         const fileExt = selectedFile.name.split(".").pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `story-images/${fileName}`;
+        const filePath = `${fileName}`;
 
+        // Upload to your exact storage bucket name: "story-images"
         const { error: uploadError } = await supabase.storage
-          .from("stories")
-          .upload(filePath, selectedFile);
+          .from("story-images")
+          .upload(filePath, selectedFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) {
-          console.warn("Storage upload failed, proceeding without image:", uploadError.message);
-        } else {
-          const { data: publicUrlData } = supabase.storage
-            .from("stories")
-            .getPublicUrl(filePath);
-          imageUrl = publicUrlData.publicUrl;
+          throw new Error(`Image upload failed: ${uploadError.message}`);
         }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("story-images")
+          .getPublicUrl(filePath);
+          
+        imageUrl = publicUrlData.publicUrl;
       }
 
       const { error } = await supabase.from("stories").insert([
@@ -80,7 +85,7 @@ export default function CreateStoryPage() {
           title,
           content: description,
           mood,
-          category: "Life", // <-- Add this since your table requires a category
+          category: "Life", // Required by your database schema table
           author_name: authorName.trim() || "Anonymous",
           target_person: targetName.trim() || null,
           image_url: imageUrl,
