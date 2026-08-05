@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, Smile, Users, Loader2, MessageSquare, Bookmark, Share2 } from "lucide-react";
+import { Heart, Smile, Users, Loader2, Frown, MessageSquare, Bookmark, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const EMOJIS = ["😊", "😄", "❤️", "🌿", "✨", "☁️"];
