@@ -56,21 +56,35 @@ export default function StoriesPage() {
     return storyMood === filterMood;
   });
 
-  // Helper to cleanly load images with CORS support
+  // Helper to cleanly load images bypassing CORS via blob conversion
   const loadImage = (url: string): Promise<HTMLImageElement | null> => {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       if (!url) {
         resolve(null);
         return;
       }
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        console.warn("Failed to load image for canvas:", url);
-        resolve(null);
-      };
-      img.src = url;
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        
+        const img = new Image();
+        img.onload = () => {
+          resolve(img);
+        };
+        img.onerror = () => {
+          console.warn("Failed to load image blob into canvas:", url);
+          resolve(null);
+        };
+        img.src = objectUrl;
+      } catch (err) {
+        console.warn("CORS fetch failed, falling back to direct load:", err);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = url;
+      }
     });
   };
 
@@ -185,7 +199,7 @@ export default function StoriesPage() {
 
       // 7. Body Content Text Wrap
       ctx.font = "26px sans-serif";
-      ctx.fillStyle = " #4b5563";
+      ctx.fillStyle = "#4b5563";
       const contentWords = story.content.split(" ");
       let contentLine = "";
 
