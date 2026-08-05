@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Smile, Frown, Loader2, Share2, Download, X } from "lucide-react";
+import { Smile, Frown, Loader2, Share2, Download, X, Sparkles } from "lucide-react";
 
 interface Story {
   id: string;
@@ -103,7 +103,7 @@ export default function StoriesPage() {
     ctx.closePath();
   };
 
-  // Generate Canvas Preview cleanly
+  // Generate Canvas Preview with Polaroid Frame styling & non-stretching image fit
   const handleOpenPreview = async (story: Story) => {
     setPreviewStory(story);
     setGeneratingPreview(true);
@@ -116,71 +116,107 @@ export default function StoriesPage() {
 
       if (!ctx) throw new Error("Could not initialize canvas.");
 
-      // 1. Background gradient
+      // 1. Background gradient (Deep moody atmospheric glassmorphism tone)
       const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      bgGradient.addColorStop(0, "#111827");
-      bgGradient.addColorStop(1, "#1f2937");
+      bgGradient.addColorStop(0, "#0f172a");
+      bgGradient.addColorStop(1, "#1e293b");
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 2. Central Card Background
+      // 2. Central Polaroid Photo Card Background
       const cardX = 90;
-      const cardY = 160;
+      const cardY = 140;
       const cardWidth = 900;
-      const cardHeight = 1600;
-      const radius = 40;
+      const cardHeight = 1640;
+      const radius = 32;
 
       ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-      ctx.shadowBlur = 50;
-      ctx.shadowOffsetY = 25;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+      ctx.shadowBlur = 60;
+      ctx.shadowOffsetY = 30;
 
       ctx.fillStyle = "#ffffff";
       drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, radius);
       ctx.fill();
       ctx.restore();
 
-      let currentY = cardY + 80;
+      let currentY = cardY + 70;
       const textLeft = cardX + 70;
       const maxTextWidth = 760;
 
-      // 3. Brand Header
-      ctx.font = "bold 24px sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText("WHAT MAKES YOU HAPPY", textLeft, currentY);
-      currentY += 50;
+      // 3. Brand Header Tracker
+      ctx.font = "bold 22px sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText("WHAT MAKES YOU HAPPY • MOMENTS", textLeft, currentY);
+      currentY += 45;
 
       // 4. Mood Badge Pill
       const isSmile = story.mood?.toLowerCase().trim() === "smile";
       ctx.fillStyle = isSmile ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)";
-      drawRoundedRect(ctx, textLeft, currentY, 220, 50, 25);
+      drawRoundedRect(ctx, textLeft, currentY, 210, 46, 23);
       ctx.fill();
 
-      ctx.font = "bold 22px sans-serif";
+      ctx.font = "bold 20px sans-serif";
       ctx.fillStyle = isSmile ? "#059669" : "#d97706";
-      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 24, currentY + 32);
-      currentY += 80;
+      ctx.fillText(isSmile ? "😊 Smile Moment" : "😢 Sad Moment", textLeft + 22, currentY + 30);
+      currentY += 75;
 
-      // 5. Optional Image Rendering
+      // 5. Polaroid Photo Frame Display Box (If image exists)
       if (story.image_url) {
         const loadedImg = await loadImage(story.image_url);
         if (loadedImg) {
-          const imgWidth = 760;
-          const imgHeight = 360;
-          
+          const frameX = textLeft;
+          const frameY = currentY;
+          const frameWidth = 760;
+          const frameHeight = 600;
+
+          // Polaroid Inner Photo Area Container with inner shadow / border styling
           ctx.save();
-          drawRoundedRect(ctx, textLeft, currentY, imgWidth, imgHeight, 20);
+          ctx.fillStyle = "#f8fafc";
+          drawRoundedRect(ctx, frameX, frameY, frameWidth, frameHeight, 16);
+          ctx.fill();
+          ctx.strokeStyle = "#e2e8f0";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.restore();
+
+          // Inner clipped image area to prevent overflow & handle object-fit: cover proportions
+          const innerPadding = 20;
+          const imgBoxWidth = frameWidth - (innerPadding * 2);
+          const imgBoxHeight = frameHeight - (innerPadding * 2);
+          const imgBoxX = frameX + innerPadding;
+          const imgBoxY = frameY + innerPadding;
+
+          ctx.save();
+          drawRoundedRect(ctx, imgBoxX, imgBoxY, imgBoxWidth, imgBoxHeight, 10);
           ctx.clip();
-          ctx.drawImage(loadedImg, textLeft, currentY, imgWidth, imgHeight);
+
+          const imgAspect = loadedImg.width / loadedImg.height;
+          const boxAspect = imgBoxWidth / imgBoxHeight;
+          
+          let renderWidth = imgBoxWidth;
+          let renderHeight = imgBoxHeight;
+          let renderX = imgBoxX;
+          let renderY = imgBoxY;
+
+          if (imgAspect > boxAspect) {
+            renderWidth = imgBoxHeight * imgAspect;
+            renderX = imgBoxX - (renderWidth - imgBoxWidth) / 2;
+          } else {
+            renderHeight = imgBoxWidth / imgAspect;
+            renderY = imgBoxY - (renderHeight - imgBoxHeight) / 2;
+          }
+
+          ctx.drawImage(loadedImg, renderX, renderY, renderWidth, renderHeight);
           ctx.restore();
           
-          currentY += imgHeight + 40;
+          currentY += frameHeight + 45;
         }
       }
 
       // 6. Title Text Wrap
-      ctx.font = "bold 40px sans-serif";
-      ctx.fillStyle = "#111827";
+      ctx.font = "bold 36px sans-serif";
+      ctx.fillStyle = "#0f172a";
       const titleWords = story.title.split(" ");
       let titleLine = "";
       
@@ -189,17 +225,17 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
           ctx.fillText(titleLine, textLeft, currentY);
           titleLine = titleWords[n] + " ";
-          currentY += 50;
+          currentY += 45;
         } else {
           titleLine = testLine;
         }
       }
       ctx.fillText(titleLine, textLeft, currentY);
-      currentY += 60;
+      currentY += 55;
 
       // 7. Body Content Text Wrap
-      ctx.font = "26px sans-serif";
-      ctx.fillStyle = "#4b5563";
+      ctx.font = "24px sans-serif";
+      ctx.fillStyle = "#475569";
       const contentWords = story.content.split(" ");
       let contentLine = "";
 
@@ -208,7 +244,7 @@ export default function StoriesPage() {
         if (ctx.measureText(testLine).width > maxTextWidth && n > 0) {
           ctx.fillText(contentLine, textLeft, currentY);
           contentLine = contentWords[n] + " ";
-          currentY += 38;
+          currentY += 36;
           if (currentY > cardY + cardHeight - 100) break;
         } else {
           contentLine = testLine;
@@ -216,10 +252,10 @@ export default function StoriesPage() {
       }
       ctx.fillText(contentLine, textLeft, currentY);
 
-      // 8. Footer Author (Fixed at bottom of card)
-      ctx.font = "bold 22px sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText(`Shared by: ${story.author_name}`, textLeft, cardY + cardHeight - 50);
+      // 8. Polaroid Footer Signature (Author Info)
+      ctx.font = "italic 20px sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(`— Captured & shared by ${story.author_name}`, textLeft, cardY + cardHeight - 50);
 
       setPreviewDataUrl(canvas.toDataURL("image/png"));
     } catch (err) {
@@ -235,7 +271,7 @@ export default function StoriesPage() {
     try {
       const downloadLink = document.createElement("a");
       downloadLink.href = previewDataUrl;
-      downloadLink.download = `story-${previewStory.id.slice(0, 6)}.png`;
+      downloadLink.download = `polaroid-story-${previewStory.id.slice(0, 6)}.png`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
@@ -251,12 +287,12 @@ export default function StoriesPage() {
     try {
       const res = await fetch(previewDataUrl);
       const blob = await res.blob();
-      const file = new File([blob], "story-card.png", { type: "image/png" });
+      const file = new File([blob], "polaroid-story.png", { type: "image/png" });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: "Shared Moment",
+          title: "Shared Moment Polaroid",
           text: "Check out this moment on What Makes You Happy!",
         });
       } else {
@@ -375,14 +411,17 @@ export default function StoriesPage() {
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* Preview Modal with Polaroid Animation */}
       {previewStory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">Share Story Card</h3>
-                <p className="text-xs text-gray-500">Preview & share your story image card</p>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Polaroid Story Card</h3>
+                  <p className="text-xs text-gray-500">Preview & download your custom polaroid layout</p>
+                </div>
               </div>
               <button
                 onClick={() => setPreviewStory(null)}
@@ -392,19 +431,27 @@ export default function StoriesPage() {
               </button>
             </div>
 
-            {/* Modal Canvas Preview Image */}
-            <div className="flex-1 overflow-y-auto flex items-center justify-center bg-gray-100 dark:bg-gray-950 rounded-2xl p-4 my-2 border border-gray-200/50 dark:border-gray-800">
+            {/* Modal Canvas Preview Image with Developing Animation */}
+            <div className="flex-1 overflow-y-auto flex items-center justify-center bg-gray-100 dark:bg-gray-950 rounded-2xl p-4 my-2 border border-gray-200/50 dark:border-gray-800 relative">
               {generatingPreview ? (
-                <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="text-xs">Generating preview card...</span>
+                <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+                  <div className="relative">
+                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                    <Sparkles className="w-4 h-4 text-emerald-500 absolute -top-1 -right-2 animate-ping" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Developing polaroid print...</p>
+                    <p className="text-[10px] text-gray-400">Applying photo frames and layout filters</p>
+                  </div>
                 </div>
               ) : previewDataUrl ? (
-                <img
-                  src={previewDataUrl}
-                  alt="Story Card Preview"
-                  className="max-h-[400px] rounded-xl shadow-lg object-contain"
-                />
+                <div className="relative group transition-all duration-500 animate-slideUp">
+                  <img
+                    src={previewDataUrl}
+                    alt="Polaroid Story Card Preview"
+                    className="max-h-[380px] rounded-xl shadow-2xl object-contain border border-white/20 transition-transform duration-300 group-hover:scale-[1.02]"
+                  />
+                </div>
               ) : null}
             </div>
 
@@ -416,7 +463,7 @@ export default function StoriesPage() {
                 className="py-3 px-4 bg-black text-white dark:bg-white dark:text-black font-semibold rounded-2xl text-xs hover:opacity-90 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                <span>Download Story Image</span>
+                <span>Download Polaroid</span>
               </button>
 
               <button
@@ -430,9 +477,8 @@ export default function StoriesPage() {
             </div>
 
             <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 space-y-1">
-              <p>1. Click <strong>Download Story Image</strong> to save the card.</p>
-              <p>2. Open Instagram or Facebook on your device.</p>
-              <p>3. Create a new Story and select your downloaded card.</p>
+              <p>1. Click <strong>Download Polaroid</strong> to save your photo card.</p>
+              <p>2. Open Instagram or Facebook Story to post it directly.</p>
             </div>
           </div>
         </div>
