@@ -80,6 +80,7 @@ export default function CreateStoryPage() {
           title,
           content: description,
           mood,
+          category: "Life", // <-- Add this since your table requires a category
           author_name: authorName.trim() || "Anonymous",
           target_person: targetName.trim() || null,
           image_url: imageUrl,
